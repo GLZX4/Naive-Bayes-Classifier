@@ -8,12 +8,12 @@ public class PhoneUsage {
     private int numOfAppsInstalled;
     private int dataUsage;
     private int age;
-    private String gender;
+    private int gender;
     private int userBehaviorClass;
 
     public PhoneUsage(int userId, String deviceModel, String operatingSystem, int appUsageTime,
                       double screenOnTime, int batteryDrain, int numberOfAppsInstalled,
-                      int dataUsage, int age, String gender, int userBehaviorClass) {
+                      int dataUsage, int age, int gender, int userBehaviorClass) {
         this.userId = userId;
         this.deviceModel = deviceModel;
         this.operatingSystem = operatingSystem;
@@ -26,6 +26,9 @@ public class PhoneUsage {
         this.gender = gender;
         this.userBehaviorClass = userBehaviorClass;
     }
+
+    // Only Getters to be used as each record should be immutable once created.
+    // Any Modifications or cleaning should be done in CSVReader.
 
     public int getUserId() {
         return userId;
@@ -54,7 +57,7 @@ public class PhoneUsage {
     public int getAge() {
         return age;
     }
-    public String getGender() {
+    public int getGender() {
         return gender;
     }
     public int getUserBehaviorClass() {

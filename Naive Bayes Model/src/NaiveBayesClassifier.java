@@ -1,19 +1,21 @@
 import java.util.*;
 
 public class NaiveBayesClassifier {
-    private Map<Integer, Double> priors; // Prior probabilities for each class
-    private Map<Integer, Map<String, Double>> categoricalLikelihoods; // For categorical features
-    private Map<Integer, Map<String, double[]>> numericalStats; // Mean and stddev for numerical features
+    private Map<Integer, Double> priors;
+    private Map<Integer, Map<String, Double>> categoricalLikelihoods;
+    private Map<Integer, Map<String, double[]>> numericalStats;
+    private Map<Integer, String> behaviorToDevice;
 
     public NaiveBayesClassifier() {
         priors = new HashMap<>();
         categoricalLikelihoods = new HashMap<>();
         numericalStats = new HashMap<>();
+        behaviorToDevice = new HashMap<>();
     }
 
-    // Training the model
+    // Training the model, a bit slow but works as far as i can tell
     public void fit(List<PhoneUsage> data) {
-        // Step 1: Calculate prior probabilities P(C)
+
         Map<Integer, Integer> classCounts = new HashMap<>();
         int totalRecords = data.size();
 
@@ -26,12 +28,10 @@ public class NaiveBayesClassifier {
             priors.put(entry.getKey(), (double) entry.getValue() / totalRecords);
         }
 
-        // Step 2: Calculate likelihoods for categorical and numerical features
         for (int userClass : classCounts.keySet()) {
             Map<String, double[]> classNumericalStats = new HashMap<>();
             Map<String, Double> classCategoricalLikelihoods = new HashMap<>();
 
-            // Separate records by class
             List<PhoneUsage> classRecords = new ArrayList<>();
             for (PhoneUsage record : data) {
                 if (record.getUserBehaviorClass() == userClass) {
@@ -39,20 +39,20 @@ public class NaiveBayesClassifier {
                 }
             }
 
-            // Calculate numerical stats (mean and stddev)
+            // Calculate the numerical stats by mean and stddev
             classNumericalStats.put("AppUsageTime", calculateMeanAndStdDev(classRecords, "AppUsageTime"));
             classNumericalStats.put("ScreenOnTime", calculateMeanAndStdDev(classRecords, "ScreenOnTime"));
 
             // Calculate categorical likelihoods
-            classCategoricalLikelihoods.put("Gender=Male", calculateCategoricalLikelihood(classRecords, "Gender", "Male"));
-            classCategoricalLikelihoods.put("Gender=Female", calculateCategoricalLikelihood(classRecords, "Gender", "Female"));
+            classCategoricalLikelihoods.put("Gender=1", calculateCategoricalLikelihood(classRecords, "Gender", 1));
+            classCategoricalLikelihoods.put("Gender=2", calculateCategoricalLikelihood(classRecords, "Gender", 2));
 
             numericalStats.put(userClass, classNumericalStats);
             categoricalLikelihoods.put(userClass, classCategoricalLikelihoods);
+            calculateDeviceRecommendations(data);
         }
     }
 
-    // Predict the class for a new record
     public int predict(PhoneUsage record) {
         double maxPosterior = Double.NEGATIVE_INFINITY;
         int bestClass = -1;
@@ -61,12 +61,12 @@ public class NaiveBayesClassifier {
             // Calculate posterior probability P(C|X)
             double posterior = Math.log(priors.get(userClass));
 
-            // Add numerical likelihoods
+            // Adding numerical likelihoods
             Map<String, double[]> stats = numericalStats.get(userClass);
             posterior += gaussianProbability(record.getAppUsageTime(), stats.get("AppUsageTime"));
             posterior += gaussianProbability(record.getScreenOnTime(), stats.get("ScreenOnTime"));
 
-            // Add categorical likelihoods
+            // Adding categorical likelihoods
             Map<String, Double> classCategoricalLikelihoods = categoricalLikelihoods.get(userClass);
             String genderKey = "Gender=" + record.getGender();
             posterior += Math.log(classCategoricalLikelihoods.getOrDefault(genderKey, 1e-9)); // Small smoothing constant
@@ -76,9 +76,41 @@ public class NaiveBayesClassifier {
                 bestClass = userClass;
             }
         }
-
         return bestClass;
     }
+
+
+    // Calculate recommended device based on specific Behaviour Class
+    private void calculateDeviceRecommendations(List<PhoneUsage> trainData) {
+        // Map to count device occurrences for each behavior class
+        Map<Integer, Map<String, Integer>> deviceCounts = new HashMap<>();
+
+        for (PhoneUsage record : trainData) {
+            int behaviorClass = record.getUserBehaviorClass();
+            String deviceModel = record.getDeviceModel();
+
+            deviceCounts.putIfAbsent(behaviorClass, new HashMap<>());
+            Map<String, Integer> deviceMap = deviceCounts.get(behaviorClass);
+            deviceMap.put(deviceModel, deviceMap.getOrDefault(deviceModel, 0) + 1);
+        }
+
+        for (Map.Entry<Integer, Map<String, Integer>> entry : deviceCounts.entrySet()) {
+            int behaviorClass = entry.getKey();
+            Map<String, Integer> devices = entry.getValue();
+
+            String recommendedDevice = devices.entrySet().stream()
+                    .max(Map.Entry.comparingByValue())
+                    .get()
+                    .getKey();
+
+            behaviorToDevice.put(behaviorClass, recommendedDevice);
+        }
+    }
+
+    public String recommendDevice(int behaviorClass) {
+        return behaviorToDevice.getOrDefault(behaviorClass, "No recommendation available");
+    }
+
 
     // Utility to calculate mean and standard deviation for numerical features
     private double[] calculateMeanAndStdDev(List<PhoneUsage> records, String feature) {
@@ -97,10 +129,10 @@ public class NaiveBayesClassifier {
     }
 
     // Utility to calculate categorical likelihoods
-    private double calculateCategoricalLikelihood(List<PhoneUsage> records, String feature, String value) {
+    private double calculateCategoricalLikelihood(List<PhoneUsage> records, String feature, int value) {
         int count = 0;
         for (PhoneUsage record : records) {
-            if (feature.equals("Gender") && record.getGender().equals(value)) {
+            if (feature.equals("Gender") && record.getGender() == value) {
                 count++;
             }
         }
@@ -108,6 +140,7 @@ public class NaiveBayesClassifier {
     }
 
     // Gaussian probability density function
+    // Code Below Adapted from: https://introcs.cs.princeton.edu/java/22library/Gaussian.java.html
     private double gaussianProbability(double x, double[] stats) {
         double mean = stats[0];
         double stddev = stats[1];
