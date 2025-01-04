@@ -6,13 +6,14 @@ public class PhoneUsage {
     private double screenOnTime;
     private int batteryDrain;
     private int numOfAppsInstalled;
+    private String PreferredAppCategory;
     private int dataUsage;
     private int age;
     private int gender;
     private int userBehaviorClass;
 
     public PhoneUsage(int userId, String deviceModel, String operatingSystem, int appUsageTime,
-                      double screenOnTime, int batteryDrain, int numberOfAppsInstalled,
+                      double screenOnTime, String PreferredAppCategory, int batteryDrain, int numberOfAppsInstalled,
                       int dataUsage, int age, int gender, int userBehaviorClass) {
         this.userId = userId;
         this.deviceModel = deviceModel;
@@ -21,6 +22,7 @@ public class PhoneUsage {
         this.screenOnTime = screenOnTime;
         this.batteryDrain = batteryDrain;
         this.numOfAppsInstalled = numberOfAppsInstalled;
+        this.PreferredAppCategory = PreferredAppCategory;
         this.dataUsage = dataUsage;
         this.age = age;
         this.gender = gender;
@@ -44,6 +46,9 @@ public class PhoneUsage {
     }
     public double getScreenOnTime() {
         return screenOnTime;
+    }
+    public String getPreferredAppCategory() {
+        return PreferredAppCategory;
     }
     public int getBatteryDrain() {
         return batteryDrain;

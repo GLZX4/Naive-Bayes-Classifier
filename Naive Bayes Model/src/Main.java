@@ -1,37 +1,70 @@
-import java.util.ArrayList;
+import java.util.*;
 import java.util.Scanner;
 
 public class Main {
-    public static String consoleMidOption = "------------------------------";
+    public static String consoleMidOption = "-----------------------------------------";
 
     public static void main(String[] args) {
-        String filePath = "data/user_behavior_dataset.csv";
+        String realDataPath = "data/user_behavior_dataset.csv";
+        String syntheticDataPath = "data/synthetic_phone_usage.csv";
         CSVReader csvReader = new CSVReader();
-        ArrayList<PhoneUsage> data = csvReader.readCSV(filePath);
-
-        int trainSize = (int) (data.size() * 0.8);
-        ArrayList<PhoneUsage> trainData = new ArrayList<>(data.subList(0, trainSize));
-        ArrayList<PhoneUsage> testData = new ArrayList<>(data.subList(trainSize, data.size()));
-
-        // Train the Naive Bayes classifier
         NaiveBayesClassifier classifier = new NaiveBayesClassifier();
-        classifier.fit(trainData);
-
         Scanner scanner = new Scanner(System.in);
 
-        calculateAndPrintAccuracy(classifier, testData);
-
-        System.out.println("Would you like to predict your behaviour class? ");
-        System.out.println("Type: Yes/yes/y OR No/no/n");
-        System.out.println(consoleMidOption);
-        String input = scanner.next();
-        Boolean userSelection = userDecision(input);
-        if (userSelection) {
-            predictNewRecord(scanner, classifier);
+        System.out.println("Would You like to synthetic data? ");
+        boolean decision = userDecision(scanner);
+        if (decision) {
+            runModelSyntheticData(realDataPath, syntheticDataPath, csvReader, classifier, scanner);
+        } else {
+            runModelNoSyntheticData(realDataPath, csvReader, classifier, scanner);
         }
     }
 
-    public static void predictNewRecord(Scanner scanner, NaiveBayesClassifier classifier) {
+    public static void userPredictNewRecordDecision(NaiveBayesClassifier classifier, Scanner scanner) {
+        System.out.println("Would you like to predict your behaviour class? ");
+        System.out.println("Type: Yes/yes/y OR No/no/n");
+        System.out.println(consoleMidOption);
+        boolean userSelection = userDecision(scanner);
+        if (userSelection) {
+            predictNewUserRecord(scanner, classifier);
+        }
+    }
+
+    public static void runModelNoSyntheticData(String filePath, CSVReader csvReader, NaiveBayesClassifier classifier, Scanner scanner) {
+        ArrayList<PhoneUsage> realData = csvReader.readOriginalCSV(filePath);
+        ArrayList<PhoneUsage> testData = trainModel(realData, classifier);
+
+        calculateAndPrintAccuracy(classifier, testData);
+        calculateStatics(classifier, testData);
+
+        userPredictNewRecordDecision(classifier, scanner);
+    }
+
+    public static void runModelSyntheticData(String filepath, String syntheticPath, CSVReader csvReader, NaiveBayesClassifier classifier, Scanner scanner) {
+        ArrayList<PhoneUsage> realData = csvReader.readOriginalCSV(filepath);
+        ArrayList<PhoneUsage> syntheticData = csvReader.readSyntheticCSV(syntheticPath);
+
+        ArrayList<PhoneUsage> combinedData = new ArrayList<>(realData);
+        combinedData.addAll(syntheticData);
+        ArrayList<PhoneUsage> testData = trainModel(combinedData, classifier);
+
+        calculateAndPrintAccuracy(classifier, testData);
+        calculateStatics(classifier, testData);
+
+        userPredictNewRecordDecision(classifier, scanner);
+    }
+
+    public static ArrayList<PhoneUsage> trainModel(ArrayList<PhoneUsage> dataset, NaiveBayesClassifier classifier) {
+        int trainSize = (int) (dataset.size() * 0.8);
+        ArrayList<PhoneUsage> trainData = new ArrayList<>(dataset.subList(0, trainSize));
+        ArrayList<PhoneUsage> testData = new ArrayList<>(dataset.subList(trainSize, dataset.size()));
+
+        classifier.fit(trainData);
+
+        return testData;
+    }
+
+    public static void predictNewUserRecord(Scanner scanner, NaiveBayesClassifier classifier) {
         System.out.println("Enter Age: ");
         int age = scanner.nextInt();
 
@@ -45,7 +78,7 @@ public class Main {
         System.out.println("Enter Screen On Time (hours/day): ");
         double screenOnTime = scanner.nextDouble();
 
-        PhoneUsage newRecord = new PhoneUsage(0, "", "", appUsageTime, screenOnTime, 0, 0, 0, age, gender, 0);
+        PhoneUsage newRecord = new PhoneUsage(0, "", "", appUsageTime, screenOnTime, "",0, 0, 0, age, gender, 0);
 
         // Predict the User Behavior Class
         int predictedClass = classifier.predict(newRecord);
@@ -55,7 +88,6 @@ public class Main {
         String deviceRecommendation = classifier.recommendDevice(predictedClass);
         System.out.println("Recommended Device: " + deviceRecommendation);
     }
-
 
     public static int genderSelection(String input) {
         input = input.toLowerCase();
@@ -68,14 +100,13 @@ public class Main {
         return gender;
     }
 
-    public static boolean userDecision(String input) {
+    public static boolean userDecision(Scanner scanner) {
         boolean validBool = false;
+        String input = scanner.nextLine();
         input = input.toLowerCase();
         switch (input) {
-            case "yes" -> validBool = true;
-            case "y" -> validBool = true;
-            case "no" -> validBool = false;
-            case "n" -> validBool = false;
+            case "yes", "y" -> validBool = true;
+            case "no", "n" -> validBool = false;
         }
         return validBool;
     }
@@ -92,6 +123,33 @@ public class Main {
         double accuracy = (double) correct / testData.size();
         System.out.println(consoleMidOption);
         System.out.println("Model accuracy Rate: " + String.format("%.3f", (accuracy * 100)) + "%");
+        System.out.println(consoleMidOption);
+    }
+
+    public static void calculateStatics(NaiveBayesClassifier classifier, ArrayList<PhoneUsage> testData) {
+        int[] truePositive = new int[6]; // For classes 1-5
+        int[] falsePositive = new int[6];
+        int[] falseNegative = new int[6];
+
+        for (PhoneUsage record : testData) {
+            int actual = record.getUserBehaviorClass();
+            int predicted = classifier.predict(record);
+
+            if (predicted == actual) {
+                truePositive[actual]++;
+            } else {
+                falsePositive[predicted]++;
+                falseNegative[actual]++;
+            }
+        }
+
+        for (int i = 1; i <= 5; i++) {
+            double precision = truePositive[i] / (double) (truePositive[i] + falsePositive[i]);
+            double recall = truePositive[i] / (double) (truePositive[i] + falseNegative[i]);
+            double f1Score = 2 * (precision * recall) / (precision + recall);
+
+            System.out.printf("Class %d - Precision: %.2f, Recall: %.2f, F1-Score: %.2f%n", i, precision, recall, f1Score);
+        }
         System.out.println(consoleMidOption);
     }
 }
