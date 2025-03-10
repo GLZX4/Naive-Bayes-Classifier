@@ -1,3 +1,4 @@
+import javax.lang.model.element.VariableElement;
 import java.util.*;
 import java.util.Scanner;
 
@@ -11,7 +12,7 @@ public class Main {
         NaiveBayesClassifier classifier = new NaiveBayesClassifier();
         Scanner scanner = new Scanner(System.in);
 
-        System.out.println("Would You like to synthetic data? ");
+        System.out.println("Would You like to integrate synthetic data? ");
         boolean decision = userDecision(scanner);
         if (decision) {
             runModelSyntheticData(realDataPath, syntheticDataPath, csvReader, classifier, scanner);
@@ -43,8 +44,8 @@ public class Main {
     public static void runModelSyntheticData(String filepath, String syntheticPath, CSVReader csvReader, NaiveBayesClassifier classifier, Scanner scanner) {
         ArrayList<PhoneUsage> realData = csvReader.readOriginalCSV(filepath);
         ArrayList<PhoneUsage> syntheticData = csvReader.readSyntheticCSV(syntheticPath);
-
         ArrayList<PhoneUsage> combinedData = new ArrayList<>(realData);
+
         combinedData.addAll(syntheticData);
         ArrayList<PhoneUsage> testData = trainModel(combinedData, classifier);
 
@@ -80,7 +81,6 @@ public class Main {
 
         PhoneUsage newRecord = new PhoneUsage(0, "", "", appUsageTime, screenOnTime, "",0, 0, 0, age, gender, 0);
 
-        // Predict the User Behavior Class
         int predictedClass = classifier.predict(newRecord);
         System.out.println("Predicted User Behavior Class: " + predictedClass);
 
@@ -107,6 +107,7 @@ public class Main {
         switch (input) {
             case "yes", "y" -> validBool = true;
             case "no", "n" -> validBool = false;
+            default -> System.out.println("Incorrect Entry");
         }
         return validBool;
     }
@@ -148,7 +149,7 @@ public class Main {
             double recall = truePositive[i] / (double) (truePositive[i] + falseNegative[i]);
             double f1Score = 2 * (precision * recall) / (precision + recall);
 
-            System.out.printf("Class %d - Precision: %.2f, Recall: %.2f, F1-Score: %.2f%n", i, precision, recall, f1Score);
+            System.out.printf("User Class %d - Precision: %.2f, Recall: %.2f, F1-Score: %.2f%n", i, precision, recall, f1Score);
         }
         System.out.println(consoleMidOption);
     }

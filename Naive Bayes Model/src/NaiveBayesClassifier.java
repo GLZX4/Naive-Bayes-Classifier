@@ -13,7 +13,7 @@ public class NaiveBayesClassifier {
         behaviorToDevice = new HashMap<>();
     }
 
-    // Training the model, a bit slow but works as far as i can tell
+    // Training the model, a bit slow but works as far as I can tell
     public void fit(List<PhoneUsage> data) {
 
         Map<Integer, Integer> classCounts = new HashMap<>();
