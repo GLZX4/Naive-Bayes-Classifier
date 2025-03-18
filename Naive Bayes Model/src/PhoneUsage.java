@@ -29,9 +29,6 @@ public class PhoneUsage {
         this.userBehaviorClass = userBehaviorClass;
     }
 
-    // Only Getters to be used as each record should be immutable once created.
-    // Any Modifications or cleaning should be done in CSVReader.
-
     public int getUserId() {
         return userId;
     }
@@ -68,4 +65,25 @@ public class PhoneUsage {
     public int getUserBehaviorClass() {
         return userBehaviorClass;
     }
+
+    public void setAppUsageTime(int appUsageTime) {
+        this.appUsageTime = appUsageTime;
+    }
+
+    public void setScreenOnTime(double screenOnTime) {
+        this.screenOnTime = screenOnTime;
+    }
+
+    public void setBatteryDrain(int batteryDrain) {
+        this.batteryDrain = batteryDrain;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    public void setGender(int gender) {
+        this.gender = gender;
+    }
+
 }

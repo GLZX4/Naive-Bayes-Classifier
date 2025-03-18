@@ -13,7 +13,10 @@ public class NaiveBayesClassifier {
         behaviorToDevice = new HashMap<>();
     }
 
-    // Training the model, a bit slow but works as far as I can tell
+    // Training the model, a bit slow but works
+    //code adapted below from:
+    // https://github.com/namsor/Java-Naive-Bayes-Classifier-JNBC/tree/master
+    // https://stackoverflow.com/questions/10059594/a-simple-explanation-of-naive-bayes-classification
     public void fit(List<PhoneUsage> data) {
 
         Map<Integer, Integer> classCounts = new HashMap<>();
@@ -39,11 +42,9 @@ public class NaiveBayesClassifier {
                 }
             }
 
-            // Calculate the numerical stats by mean and stddev
             classNumericalStats.put("AppUsageTime", calculateMeanAndStdDev(classRecords, "AppUsageTime"));
             classNumericalStats.put("ScreenOnTime", calculateMeanAndStdDev(classRecords, "ScreenOnTime"));
 
-            // Calculate categorical likelihoods
             classCategoricalLikelihoods.put("Gender=1", calculateCategoricalLikelihood(classRecords, "Gender", 1));
             classCategoricalLikelihoods.put("Gender=2", calculateCategoricalLikelihood(classRecords, "Gender", 2));
 
@@ -61,15 +62,15 @@ public class NaiveBayesClassifier {
             // Calculate posterior probability P(C|X)
             double posterior = Math.log(priors.get(userClass));
 
-            // Adding numerical likelihoods
             Map<String, double[]> stats = numericalStats.get(userClass);
             posterior += gaussianProbability(record.getAppUsageTime(), stats.get("AppUsageTime"));
             posterior += gaussianProbability(record.getScreenOnTime(), stats.get("ScreenOnTime"));
 
-            // Adding categorical likelihoods
             Map<String, Double> classCategoricalLikelihoods = categoricalLikelihoods.get(userClass);
             String genderKey = "Gender=" + record.getGender();
-            posterior += Math.log(classCategoricalLikelihoods.getOrDefault(genderKey, 1e-9)); // Small smoothing constant
+            // some Laplace smoothing, else defaults to scientific notation of 1/1billionth to still provide a value.
+            //otherwise the classifier just crashes.
+            posterior += Math.log(classCategoricalLikelihoods.getOrDefault(genderKey, 1e-9));
 
             if (posterior > maxPosterior) {
                 maxPosterior = posterior;
@@ -80,9 +81,8 @@ public class NaiveBayesClassifier {
     }
 
 
-    // Calculate recommended device based on specific Behaviour Class
+    //helper method
     private void calculateDeviceRecommendations(List<PhoneUsage> trainData) {
-        // Map to count device occurrences for each behavior class
         Map<Integer, Map<String, Integer>> deviceCounts = new HashMap<>();
 
         for (PhoneUsage record : trainData) {
@@ -98,6 +98,8 @@ public class NaiveBayesClassifier {
             int behaviorClass = entry.getKey();
             Map<String, Integer> devices = entry.getValue();
 
+            // code below adapted from: https://stackoverflow.com/questions/16246821/how-to-get-values-and-keys-from-hashmap
+
             String recommendedDevice = devices.entrySet().stream()
                     .max(Map.Entry.comparingByValue())
                     .get()
@@ -111,8 +113,8 @@ public class NaiveBayesClassifier {
         return behaviorToDevice.getOrDefault(behaviorClass, "No recommendation available");
     }
 
+    //code below adapted from: https://www.baeldung.com/java-calculate-standard-deviation
 
-    // Utility to calculate mean and standard deviation for numerical features
     private double[] calculateMeanAndStdDev(List<PhoneUsage> records, String feature) {
         double sum = 0.0, sumSq = 0.0;
         int n = records.size();
@@ -128,7 +130,6 @@ public class NaiveBayesClassifier {
         return new double[]{mean, Math.sqrt(variance)};
     }
 
-    // Utility to calculate categorical likelihoods
     private double calculateCategoricalLikelihood(List<PhoneUsage> records, String feature, int value) {
         int count = 0;
         for (PhoneUsage record : records) {
@@ -139,12 +140,20 @@ public class NaiveBayesClassifier {
         return (double) count / records.size();
     }
 
-    // Gaussian probability density function
-    // Code Below Adapted from: https://introcs.cs.princeton.edu/java/22library/Gaussian.java.html
+    // Code Below Adapted from:
+    // https://introcs.cs.princeton.edu/java/22library/Gaussian.java.html
+    // https://www.baeldung.com/java-calculate-standard-deviation
     private double gaussianProbability(double x, double[] stats) {
         double mean = stats[0];
         double stddev = stats[1];
-        double exponent = Math.exp(-((x - mean) * (x - mean)) / (2 * stddev * stddev));
-        return (1 / (Math.sqrt(2 * Math.PI) * stddev)) * exponent;
+
+        double variance = stddev * stddev;
+        double exponentNumerator = (x - mean) * (x - mean);
+        double exponentDenominator = 2 * variance;
+
+        double exponent = Math.exp(-(exponentNumerator / exponentDenominator));
+        double gaussianFactor = 1 / (Math.sqrt(2 * Math.PI) * stddev);
+
+        return gaussianFactor * exponent;
     }
 }
